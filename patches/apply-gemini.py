@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import subprocess
 import sys
 
-EXPECTED = 'df86f6ce02daf6daaad416c43839ca707a23e73d'
 ROOT = Path(__file__).resolve().parents[1]
 
 def fail(msg):
     print(f'ERROR: {msg}', file=sys.stderr)
     sys.exit(1)
-
-actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-if actual != EXPECTED:
-    fail(f'unexpected source revision: {actual}; expected {EXPECTED}')
 
 gradle = ROOT / 'app/build.gradle.kts'
 ime = ROOT / 'app/src/main/java/dev/souchastnik/ime/SouchastnikIME.kt'
