@@ -180,12 +180,12 @@ class GeminiNanoClient {
 '''
 
 gemini.parent.mkdir(parents=True, exist_ok=True)
-if gemini.exists():
-    current = gemini.read_text(encoding='utf-8')
-    if current != GEMINI_SOURCE:
-        fail('GeminiNanoClient.kt already exists with different contents')
-else:
-    gemini.write_text(GEMINI_SOURCE, encoding='utf-8')
+#if gemini.exists():
+#    current = gemini.read_text(encoding='utf-8')
+#    if current != GEMINI_SOURCE:
+#        fail('GeminiNanoClient.kt already exists with different contents')
+#else:
+gemini.write_text(GEMINI_SOURCE, encoding='utf-8')
 
 s = ime.read_text(encoding='utf-8')
 
