@@ -53,8 +53,7 @@ jobs:
         run: gradle --version
 
       - name: Build debug APK
-        run: |
-          ./gradlew --no-daemon --stacktrace assembleDebug
+        run: gradle --no-daemon --stacktrace assembleDebug
 
       - name: Verify APK
         shell: bash
