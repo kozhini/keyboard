@@ -1,0 +1,6 @@
+Overlay contents:
+  app/src/main/java/dev/souchastnik/ai/GeminiNanoClient.kt
+  apply_overlay.ps1
+  README.md
+
+The original repository files are NOT included because the repository contains a large llama.cpp submodule and model payloads. The overlay is designed to be applied to the exact public repository MShverdiakov/souchastnik.
