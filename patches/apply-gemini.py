@@ -341,4 +341,23 @@ if 'gemini?.analyze(before)' not in s:
         'analyzeCurrent')
 
 ime.write_text(s, encoding='utf-8')
+# ===== Отключаем llama.cpp в CMakeLists.txt =====
+cmake_path = ROOT / 'app/src/main/cpp/CMakeLists.txt'
+if cmake_path.exists():
+    cmake_content = cmake_path.read_text(encoding='utf-8')
+    lines = cmake_content.splitlines()
+    new_lines = []
+    for line in lines:
+        if 'add_subdirectory' in line and 'llama.cpp' in line:
+            new_lines.append('#' + line)
+        elif 'add_library(souchastnik' in line:
+            new_lines.append('#' + line)
+        elif 'target_link_libraries(souchastnik' in line:
+            new_lines.append('#' + line)
+        else:
+            new_lines.append(line)
+    cmake_path.write_text('\n'.join(new_lines), encoding='utf-8')
+    print('ℹ️  CMakeLists.txt updated: llama.cpp lines commented out')
+else:
+    print('⚠️  CMakeLists.txt not found, skipping')
 print('Gemini Nano patch applied successfully.')
