@@ -1,5 +1,4 @@
-// Импорт обязателен: в Kotlin DSL `java` — это расширение Gradle, поэтому
-// полное имя java.util.Properties внутри скрипта не резолвится.
+// Импорт обязателен: в Kotlin DSL `java` — это расширение Gradle.
 import java.util.Properties
 
 plugins {
@@ -7,24 +6,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-/**
- * Релизный ключ. Пароли лежат в keystore.properties в корне проекта, файл
- * вне git. Пример содержимого:
- *
- *     storeFile=souchastnik-release.jks
- *     storePassword=...
- *     keyAlias=souchastnik
- *     keyPassword=...
- *
- * Сам ключ создаётся один раз:
- *
- *     keytool -genkeypair -v -keystore souchastnik-release.jks \
- *         -alias souchastnik -keyalg RSA -keysize 4096 -validity 10000
- *
- * Ключ и пароли положить в бэкап: Android не примет обновление, подписанное
- * другим ключом, и потеря keystore означает, что обновить уже установленное
- * приложение нельзя ничем, кроме удаления и переустановки.
- */
 val keystoreProps = rootProject.file("keystore.properties")
     .takeIf { it.exists() }
     ?.let { file ->
@@ -43,64 +24,10 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-
-        ndk { abiFilters += "arm64-v8a" }
-
-        externalNativeBuild {
-            cmake {
-                // GGML_LLAMAFILE выключен: на Android даёт проблемы сборки,
-                // выигрыш для наших коротких промптов несущественный.
-                //
-                // Ядра ggml-cpu собираются во ВСЕХ вариантах под arm64 и
-                // выбираются на устройстве в рантайме (GGML_BACKEND_DL +
-                // GGML_CPU_ALL_VARIANTS): семь libggml-cpu-android_*.so от
-                // armv8.0 (без dotprod: Kirin 710, Snapdragon 680/662, Helio
-                // G35) до armv9.2 (i8mm, SVE, SME). Каждый вариант умеет
-                // сказать через ggml_backend_score(), подходит ли он этому CPU;
-                // выбор и загрузка -- load_cpu_backend() в llama_bridge.cpp.
-                //
-                // Раньше стоял жёсткий -DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16:
-                // быстро на Dimensity 700 (без него префилл ~11 т/с вместо ~73),
-                // но на ядрах без dotprod процесс :engine падал по SIGILL.
-                // Один -march под все телефоны не бывает: у A73 нет dotprod,
-                // у A76 нет i8mm, а компилятор без флага не даёт ни того, ни
-                // другого. При кросс-сборке GGML_NATIVE выключен, поэтому
-                // варианты -- единственный способ получить и то, и другое.
-                arguments += listOf(
-                    "-DCMAKE_BUILD_TYPE=Release",
-                    "-DGGML_BACKEND_DL=ON",
-                    "-DGGML_CPU_ALL_VARIANTS=ON",
-                    "-DLLAMA_CURL=OFF",
-                    "-DLLAMA_BUILD_TOOLS=OFF",
-                    "-DLLAMA_BUILD_EXAMPLES=OFF",
-                    "-DLLAMA_BUILD_TESTS=OFF",
-                    "-DGGML_LLAMAFILE=OFF",
-                    "-DGGML_OPENMP=OFF",
-                )
-                cppFlags += "-O3"
-            }
-        }
-    }
-
-    // КРИТИЧНО: legacy packaging = нативные библиотеки распаковываются в
-    // nativeLibraryDir реальным файлом. Модель лежит там как libmodel-*.so,
-    // и мы её mmap-им напрямую по пути. Без этого файла на диске нет и
-    // mmap невозможен.
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-        }
     }
 
     buildFeatures {
-        aidl = true
-    }
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
+        aidl = false
     }
 
     signingConfigs {
@@ -117,17 +44,11 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Есть keystore.properties -- подписываем настоящим ключом.
-            // Нет -- остаётся debug-ключ, как было для спайка: тогда
-            // `installRelease` на телефон работает, но ПУБЛИКОВАТЬ такой APK
-            // нельзя. Подпись должна быть постоянной, иначе обновления с
-            // GitHub Releases и F-Droid не встанут поверх установленного.
             signingConfig = if (keystoreProps != null) {
                 signingConfigs.getByName("release")
             } else {
                 logger.warn(
-                    "souchastnik: keystore.properties нет, релиз подписывается " +
-                        "DEBUG-ключом. Публиковать такой APK нельзя."
+                    "souchastnik: keystore.properties нет, релиз подписывается DEBUG-ключом."
                 )
                 signingConfigs.getByName("debug")
             }
