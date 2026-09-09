@@ -44,30 +44,34 @@ class GeminiNanoClient {
         onState?.invoke(state)
     }
 
-    suspend fun prepare() = withContext(Dispatchers.Default) {
-        if (ready) {
-            emit(State.Clean)
-            return@withContext
-        }
+    suspend fun prepare(): Boolean = withContext(Dispatchers.Default) {
+        if (ready) return@withContext true
+
         emit(State.Loading)
         try {
-            var status = model.checkStatus()
-            if (status == FeatureStatus.DOWNLOADABLE) {
-                model.download().collect { }
-                status = model.checkStatus()
-            }
+            // AICore owns the shared Gemini Nano model. We deliberately do not
+            // trigger a model download here: on supported Pixel devices the
+            // system-provisioned model is expected to be available already.
+            val status = model.checkStatus()
             ready = status == FeatureStatus.AVAILABLE
             emit(if (ready) State.Clean else State.NoModel)
+            ready
         } catch (t: Throwable) {
             ready = false
-            Log.w(TAG, "Gemini Nano preparation failed", t)
+            Log.w(TAG, "Gemini Nano status check failed", t)
             emit(State.NoModel)
+            false
         }
     }
 
-    fun prepareInBackground() {
-        if (prepareJob?.isActive == true || ready) return
-        prepareJob = scope.launch { prepare() }
+    fun prepareInBackground(onReady: (() -> Unit)? = null) {
+        if (prepareJob?.isActive == true || ready) {
+            if (ready) onReady?.invoke()
+            return
+        }
+        prepareJob = scope.launch {
+            if (prepare()) onReady?.invoke()
+        }
     }
 
     suspend fun analyze(text: String): State = withContext(Dispatchers.Default) {
