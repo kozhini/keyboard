@@ -1,5 +1,5 @@
-// Импорт обязателен: в Kotlin DSL `java` — это расширение Gradle.
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -47,9 +47,7 @@ android {
             signingConfig = if (keystoreProps != null) {
                 signingConfigs.getByName("release")
             } else {
-                logger.warn(
-                    "souchastnik: keystore.properties нет, релиз подписывается DEBUG-ключом."
-                )
+                logger.warn("souchastnik: keystore.properties нет, релиз подписывается DEBUG-ключом.")
                 signingConfigs.getByName("debug")
             }
         }
@@ -59,8 +57,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
