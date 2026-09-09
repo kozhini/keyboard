@@ -1,6 +1,5 @@
 package dev.souchastnik.ai
 
-import android.content.Context
 import android.util.Log
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
@@ -18,7 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** On-device Gemini Nano classifier used directly by the IME process. */
-class GeminiNanoClient(private val context: Context) {
+class GeminiNanoClient {
     companion object {
         private const val TAG = "souchastnik-gemini"
         private const val MIN_CHARS = 12
@@ -34,7 +33,8 @@ class GeminiNanoClient(private val context: Context) {
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var job: Job? = null
+    private var analyzeJob: Job? = null
+    private var prepareJob: Job? = null
     private val model by lazy { Generation.getClient() }
     private var ready = false
 
@@ -45,6 +45,10 @@ class GeminiNanoClient(private val context: Context) {
     }
 
     suspend fun prepare() = withContext(Dispatchers.Default) {
+        if (ready) {
+            emit(State.Clean)
+            return@withContext
+        }
         emit(State.Loading)
         try {
             var status = model.checkStatus()
@@ -59,6 +63,11 @@ class GeminiNanoClient(private val context: Context) {
             Log.w(TAG, "Gemini Nano preparation failed", t)
             emit(State.NoModel)
         }
+    }
+
+    fun prepareInBackground() {
+        if (prepareJob?.isActive == true || ready) return
+        prepareJob = scope.launch { prepare() }
     }
 
     suspend fun analyze(text: String): State = withContext(Dispatchers.Default) {
@@ -121,20 +130,21 @@ class GeminiNanoClient(private val context: Context) {
     }
 
     fun launchAnalyze(text: String) {
-        cancel()
-        job = scope.launch {
+        analyzeJob?.cancel()
+        analyzeJob = scope.launch {
             val state = analyze(text)
             withContext(Dispatchers.Main.immediate) { onState?.invoke(state) }
         }
     }
 
     fun cancel() {
-        job?.cancel()
-        job = null
+        analyzeJob?.cancel()
+        analyzeJob = null
     }
 
     fun close() {
         cancel()
+        prepareJob?.cancel()
         model.close()
         scope.cancel()
     }
