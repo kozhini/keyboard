@@ -4,12 +4,16 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
       - ".github/workflows/build-gemini.yml"
-      - "patches/**"
   pull_request:
     paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
       - ".github/workflows/build-gemini.yml"
-      - "patches/**"
 
 permissions:
   contents: read
@@ -24,21 +28,15 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Verify source
+      - name: Verify no legacy llama.cpp engine
         shell: bash
         run: |
           set -euo pipefail
-
-          test -f app/build.gradle.kts
-          test -f app/src/main/java/dev/souchastnik/ime/SouchastnikIME.kt
-          test -f patches/apply-gemini.py
-
-          echo "Source files found."
-          git rev-parse HEAD
-
-      - name: Apply Gemini Nano patch
-        run: |
-          python3 patches/apply-gemini.py
+          if grep -RniE 'llama|LlamaBridge|EngineClient|EngineService|\.gguf|CMakeLists|externalNativeBuild|ndkBuild' \
+              app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts tools .github 2>/dev/null; then
+            echo "Legacy llama.cpp/native-engine reference found."
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -46,26 +44,32 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
 
       - name: Build APK
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
+        run: gradle --no-daemon assembleDebug
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
-
           APK="app/build/outputs/apk/debug/app-debug.apk"
-
           test -f "$APK"
-
           echo "APK:"
           ls -lh "$APK"
           sha256sum "$APK"
+
+      - name: Verify APK has no INTERNET permission
+        shell: bash
+        run: |
+          set -euo pipefail
+          if unzip -p app/build/outputs/apk/debug/app-debug.apk AndroidManifest.xml | grep -q 'android.permission.INTERNET'; then
+            echo "INTERNET permission found in APK."
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -74,12 +78,12 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-      - name: Upload patched sources
+      - name: Package source archive
+        run: git archive --format=zip --output=souchastnik-gemini-nano-source.zip HEAD
+
+      - name: Upload source archive
         uses: actions/upload-artifact@v4
         with:
-          name: souchastnik-gemini-nano-sources
-          path: |
-            app/build.gradle.kts
-            app/src/main/java/dev/souchastnik/ime/SouchastnikIME.kt
-            app/src/main/java/dev/souchastnik/ai/GeminiNanoClient.kt
+          name: souchastnik-gemini-nano-source
+          path: souchastnik-gemini-nano-source.zip
           retention-days: 14
