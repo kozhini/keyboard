@@ -36,7 +36,7 @@ class SouchastnikIME : InputMethodService(), KeyboardView.Listener {
         Articles.load(this)
         Triggers.load(this)
         Agents.load(this)
-        gemini = GeminiNanoClient(this).also { client ->
+        gemini = GeminiNanoClient().also { client ->
             client.onState = { state ->
                 if (::strip.isInitialized) strip.render(state)
             }
