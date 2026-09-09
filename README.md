@@ -1,12 +1,8 @@
 # Souchastnik + Gemini Nano GitHub Actions build
 
-Prepared against exact commit:
-
-`df86f6ce02daf6daaad416c43839ca707a23e73d`
-
 ## Install
 
-Copy these files into the root of your `MShverdiakov/souchastnik` checkout:
+Copy these files into the root of your checkout:
 
 - `.github/workflows/build-gemini.yml`
 - `patches/apply-gemini.py`
