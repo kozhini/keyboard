@@ -18,11 +18,9 @@ import androidx.core.content.ContextCompat
 import dev.souchastnik.R
 import dev.souchastnik.data.Articles
 import dev.souchastnik.data.Prefs
-import dev.souchastnik.engine.EngineService
 
 /** Экран установки: включить клавиатуру в системе и глобальный тумблер. */
 class SetupActivity : AppCompatActivity() {
-
     private lateinit var status: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,15 +30,9 @@ class SetupActivity : AppCompatActivity() {
         val pad = (16 * resources.displayMetrics.density).toInt()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            // Панели сверху нет, поэтому лок-апу нужен воздух под статус-баром.
             setPadding(pad, pad + pad / 2, pad, pad)
         }
 
-        // Лок-ап вместо набранного заголовка: в нём и знак, и слово
-        // «Соучастник», и слоган. Светлый/тёмный варианты разведены по
-        // res/drawable и res/drawable-night, система берёт нужный сама.
-        // FIT_START при height=48dp только уменьшает на узких экранах и
-        // никогда не растягивает выше исходных 257x48dp.
         root.addView(ImageView(this).apply {
             setImageResource(R.drawable.logo_lockup)
             scaleType = ImageView.ScaleType.FIT_START
@@ -58,9 +50,8 @@ class SetupActivity : AppCompatActivity() {
             text(
                 "Клавиатура показывает статью и наказание за то, что вы печатаете. " +
                     "Работает в любом приложении.\n\n" +
-                    "Разбор идёт целиком на телефоне. У приложения нет разрешения на " +
-                    "интернет — проверьте сами: aapt dump permissions на APK. " +
-                    "Работает без интернета.",
+                    "Разбор выполняется на телефоне через Gemini Nano. У приложения " +
+                    "нет разрешения на интернет — проверьте это на APK. Работает без интернета.",
                 14f,
             )
         )
@@ -70,8 +61,6 @@ class SetupActivity : AppCompatActivity() {
             text = "1. Включить клавиатуру в системе"
             setOnClickListener { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
         })
-        // Не пункт и не кнопка: перезагрузка -- не действие приложения, а
-        // условие, без которого система не отдаёт клавиатуру на шаге 2.
         root.addView(spacer(pad / 2))
         root.addView(text("Перезагрузите устройство", 14f, center = true))
         root.addView(spacer(pad / 2))
@@ -84,8 +73,6 @@ class SetupActivity : AppCompatActivity() {
         })
         root.addView(spacer(pad))
 
-        // Пояснение создаётся раньше тумблера: describe() переписывает обе
-        // надписи сразу, чтобы состояние читалось без догадок.
         val hint = text("", 12.5f, color = R.color.brand_muted)
         val switch = Switch(this).apply {
             textSize = 16f
@@ -94,14 +81,11 @@ class SetupActivity : AppCompatActivity() {
         fun describe(checked: Boolean) {
             switch.text = if (checked) "  Статьи показываются" else "  Статьи скрыты"
             hint.text = if (checked) {
-                "Модель загружается в память, когда открывается клавиатура. " +
-                    "Тот же тумблер есть справа в самой строке."
+                "Gemini Nano используется при открытии клавиатуры. Тот же тумблер есть справа в строке."
             } else {
-                "Клавиатура работает как обычная, модель не загружается в память " +
-                    "вообще. Тот же тумблер есть справа в самой строке."
+                "Клавиатура работает как обычная, анализ не запускается. Тот же тумблер есть справа в строке."
             }
         }
-        // isChecked выставлен до подписки, поэтому лишнего срабатывания нет.
         describe(switch.isChecked)
         switch.setOnCheckedChangeListener { _, checked ->
             Prefs.setEnabled(this@SetupActivity, checked)
@@ -121,19 +105,11 @@ class SetupActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        val model = EngineService.modelFile(this)
         status.text = buildString {
             append("Статей в справочнике: ${Articles.size()}\n")
-            if (model.exists()) {
-                append("Модель: ${model.length() / 1024 / 1024} МБ\n")
-                if (!dev.souchastnik.engine.Cpu.hasDotprod()) {
-                    append("Процессор без dotprod (Cortex-A53/A73): модель работает,\n")
-                    append("но разбор фразы занимает десятки секунд.\n")
-                }
-            } else {
-                append("Модель не установлена — строка будет пустой.\n")
-                append("Сборка без весов: см. app/src/main/jniLibs/README.md\n")
-            }
+            append("Движок: Gemini Nano / AICore\n")
+            append("Сторонняя модель в APK не поставляется.\n")
+            append("Доступность Gemini Nano определяется системой устройства.")
         }
     }
 
@@ -148,12 +124,7 @@ class SetupActivity : AppCompatActivity() {
             text = s
             setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
             if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
-            // Цвета -- из res/values(-night)/colors.xml: одна палитра с
-            // лок-апом, тёмная тема подхватывается без кода.
             color?.let { setTextColor(ContextCompat.getColor(this@SetupActivity, it)) }
-            // layoutParams не нужны: LinearLayout с orientation = VERTICAL по
-            // умолчанию отдаёт детям MATCH_PARENT по ширине, так что одного
-            // gravity достаточно.
             if (center) gravity = Gravity.CENTER_HORIZONTAL
             val p = (4 * resources.displayMetrics.density).toInt()
             setPadding(0, p, 0, p)
