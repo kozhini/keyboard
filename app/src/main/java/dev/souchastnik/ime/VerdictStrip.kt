@@ -62,9 +62,9 @@ class VerdictStrip(context: Context) : LinearLayout(context) {
         toggle.text = "◉"
         toggle.setTextColor(colorAdmin)
         when (state) {
-            GeminiNanoClient.State.NoModel -> {
+            is GeminiNanoClient.State.NoModel -> {
                 label.setTextColor(colorClean)
-                setLabel(context.getString(R.string.strip_no_model))
+                setLabel(state.detail)
             }
             GeminiNanoClient.State.Loading -> {
                 label.setTextColor(colorClean)
