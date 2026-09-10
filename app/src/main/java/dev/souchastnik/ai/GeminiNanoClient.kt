@@ -1,6 +1,7 @@
 package dev.souchastnik.ai
 
 import android.util.Log
+import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.TextPart
@@ -13,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -49,20 +51,61 @@ class GeminiNanoClient {
 
         emit(State.Loading)
         try {
-            val status = model.checkStatus()
-            if (status == FeatureStatus.AVAILABLE) {
-                val modelName = runCatching { model.getBaseModelName() }
-                    .getOrElse { "unknown (${it.javaClass.simpleName})" }
-                ready = true
-                Log.i(TAG, "Gemini Nano available: $modelName")
-                emit(State.Clean)
-                true
-            } else {
-                ready = false
-                val detail = "Gemini Nano: ${statusName(status)}"
-                Log.w(TAG, detail)
-                emit(State.NoModel(detail))
-                false
+            when (model.checkStatus()) {
+                FeatureStatus.AVAILABLE -> {
+                    markReady()
+                    true
+                }
+
+                FeatureStatus.DOWNLOADABLE,
+                FeatureStatus.DOWNLOADING -> {
+                    Log.i(TAG, "Gemini Nano needs download: ${statusName(model.checkStatus())}")
+                    emit(State.NoModel("Gemini Nano: DOWNLOADING"))
+
+                    model.download().collect { status ->
+                        when (status) {
+                            is DownloadStatus.DownloadStarted -> {
+                                Log.i(TAG, "Gemini Nano download started: ${status.bytesToDownload} bytes")
+                                emit(State.NoModel("Gemini Nano: DOWNLOADING"))
+                            }
+
+                            is DownloadStatus.DownloadProgress -> {
+                                Log.i(TAG, "Gemini Nano download progress: ${status.totalBytesDownloaded} bytes")
+                            }
+
+                            DownloadStatus.DownloadCompleted -> {
+                                Log.i(TAG, "Gemini Nano download completed")
+                            }
+
+                            is DownloadStatus.DownloadFailed -> {
+                                val message = status.e.message?.takeIf { it.isNotBlank() }
+                                    ?: status.e.javaClass.simpleName
+                                Log.e(TAG, "Gemini Nano download failed: $message", status.e)
+                                emit(State.NoModel("Gemini Nano: DOWNLOAD_FAILED: $message"))
+                            }
+                        }
+                    }
+
+                    if (model.checkStatus() == FeatureStatus.AVAILABLE) {
+                        markReady()
+                        true
+                    } else {
+                        val status = model.checkStatus()
+                        val detail = "Gemini Nano: ${statusName(status)}"
+                        Log.w(TAG, detail)
+                        emit(State.NoModel(detail))
+                        false
+                    }
+                }
+
+                else -> {
+                    ready = false
+                    val status = model.checkStatus()
+                    val detail = "Gemini Nano: ${statusName(status)}"
+                    Log.w(TAG, detail)
+                    emit(State.NoModel(detail))
+                    false
+                }
             }
         } catch (t: Throwable) {
             ready = false
@@ -74,10 +117,18 @@ class GeminiNanoClient {
                     append(it)
                 }
             }
-            Log.w(TAG, "Gemini Nano status check failed", t)
+            Log.w(TAG, "Gemini Nano status/download failed", t)
             emit(State.NoModel(detail))
             false
         }
+    }
+
+    private suspend fun markReady() {
+        val modelName = runCatching { model.getBaseModelName() }
+            .getOrElse { "unknown (${it.javaClass.simpleName})" }
+        ready = true
+        Log.i(TAG, "Gemini Nano available: $modelName")
+        emit(State.Clean)
     }
 
     private fun statusName(status: Int): String = when (status) {
