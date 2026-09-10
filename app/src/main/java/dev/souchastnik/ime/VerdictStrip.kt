@@ -46,9 +46,15 @@ class VerdictStrip(context: Context) : LinearLayout(context) {
         addView(label, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
 
         toggle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        toggle.setPadding(dp(12), 0, dp(4), 0)
+        toggle.setGravity(Gravity.CENTER)
+        toggle.setPadding(0, 0, 0, 0)
+        toggle.minWidth = dp(48)
+        toggle.minimumHeight = dp(48)
+        toggle.isClickable = true
+        toggle.isFocusable = true
+        toggle.contentDescription = "Переключить ИИ"
         toggle.setOnClickListener { onToggle?.invoke() }
-        addView(toggle, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        addView(toggle, LayoutParams(dp(48), dp(48)))
     }
 
     fun renderOff() {
