@@ -130,7 +130,9 @@ class SouchastnikIME : InputMethodService(), KeyboardView.Listener {
         val marker = Agents.lastWord(before)?.let { Agents.markerFor(it) }
             ?: Agents.markerForTail(before)
             ?: return
-        ic.commitText(" ($marker)", 1)
+        // The legal/status marker belongs in the keyboard status strip,
+        // not in the user's text field.
+        strip.renderAgentMarker(marker)
     }
 
     override fun onBackspace() {
