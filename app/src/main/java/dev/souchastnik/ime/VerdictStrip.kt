@@ -58,13 +58,24 @@ class VerdictStrip(context: Context) : LinearLayout(context) {
     }
 
     fun renderOff() {
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
         label.setTextColor(colorClean)
         setLabel(context.getString(R.string.strip_off))
         toggle.text = "○"
         toggle.setTextColor(colorClean)
     }
 
+    /** Shows a deterministic agent/service status without inserting it into the input field. */
+    fun renderAgentMarker(marker: String) {
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
+        label.setTextColor(colorClean)
+        setLabel(marker)
+        toggle.text = "◉"
+        toggle.setTextColor(colorAdmin)
+    }
+
     fun render(state: GeminiNanoClient.State) {
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
         toggle.text = "◉"
         toggle.setTextColor(colorAdmin)
         when (state) {
