@@ -25,7 +25,7 @@ class GeminiNanoClient {
     }
 
     sealed interface State {
-        data object NoModel : State
+        data class NoModel(val detail: String = "Gemini Nano недоступен") : State
         data object Loading : State
         data object Clean : State
         data object Thinking : State
@@ -49,19 +49,43 @@ class GeminiNanoClient {
 
         emit(State.Loading)
         try {
-            // AICore owns the shared Gemini Nano model. We deliberately do not
-            // trigger a model download here: on supported Pixel devices the
-            // system-provisioned model is expected to be available already.
             val status = model.checkStatus()
-            ready = status == FeatureStatus.AVAILABLE
-            emit(if (ready) State.Clean else State.NoModel)
-            ready
+            if (status == FeatureStatus.AVAILABLE) {
+                val modelName = runCatching { model.getBaseModelName() }
+                    .getOrElse { "unknown (${it.javaClass.simpleName})" }
+                ready = true
+                Log.i(TAG, "Gemini Nano available: $modelName")
+                emit(State.Clean)
+                true
+            } else {
+                ready = false
+                val detail = "Gemini Nano: ${statusName(status)}"
+                Log.w(TAG, detail)
+                emit(State.NoModel(detail))
+                false
+            }
         } catch (t: Throwable) {
             ready = false
+            val detail = buildString {
+                append("Gemini Nano: ошибка ")
+                append(t.javaClass.simpleName)
+                t.message?.takeIf { it.isNotBlank() }?.let {
+                    append(": ")
+                    append(it)
+                }
+            }
             Log.w(TAG, "Gemini Nano status check failed", t)
-            emit(State.NoModel)
+            emit(State.NoModel(detail))
             false
         }
+    }
+
+    private fun statusName(status: Int): String = when (status) {
+        FeatureStatus.AVAILABLE -> "AVAILABLE"
+        FeatureStatus.DOWNLOADABLE -> "DOWNLOADABLE"
+        FeatureStatus.DOWNLOADING -> "DOWNLOADING"
+        FeatureStatus.UNAVAILABLE -> "UNAVAILABLE"
+        else -> "status=$status"
     }
 
     fun prepareInBackground(onReady: (() -> Unit)? = null) {
@@ -76,7 +100,7 @@ class GeminiNanoClient {
 
     suspend fun analyze(text: String): State = withContext(Dispatchers.Default) {
         if (text.trim().length < MIN_CHARS) return@withContext State.Clean
-        if (!ready) return@withContext State.NoModel
+        if (!ready) return@withContext State.NoModel()
 
         val match = Triggers.match(text)
         if (match.codes.isEmpty()) return@withContext State.Clean
