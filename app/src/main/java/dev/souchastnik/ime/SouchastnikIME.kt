@@ -8,6 +8,8 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.widget.LinearLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import dev.souchastnik.ai.GeminiNanoClient
 import dev.souchastnik.data.Agents
 import dev.souchastnik.data.Articles
@@ -55,6 +57,12 @@ class SouchastnikIME : InputMethodService(), KeyboardView.Listener {
             orientation = LinearLayout.VERTICAL
             addView(strip, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             addView(keyboard, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+                val bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+                view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, bottom)
+                insets
+            }
+            ViewCompat.requestApplyInsets(this)
         }
     }
 
