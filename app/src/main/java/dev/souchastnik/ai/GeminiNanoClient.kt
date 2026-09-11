@@ -8,6 +8,7 @@ import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
 import dev.souchastnik.data.Article
 import dev.souchastnik.data.Articles
+import dev.souchastnik.data.Examples
 import dev.souchastnik.data.Triggers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -162,15 +163,15 @@ class GeminiNanoClient {
         val table = candidates.joinToString("\n") { code ->
             Articles[code]!!.let { "${it.code} — ${it.act} — ${it.title}" }
         }
-        val clean = match.clean.take(8).joinToString("\n")
+        val examples = Examples.judgeBlock(candidates, match.clean)
         val prompt = buildString {
             appendLine("You are a strict text classifier.")
             appendLine("Choose exactly one code from the candidate list, or none.")
             appendLine("Return ONLY the code, with no explanation and no punctuation.")
             appendLine("A trigger is only a candidate signal; decide from the full text.")
-            if (clean.isNotEmpty()) {
-                appendLine("Counterexamples:")
-                appendLine(clean)
+            if (examples.isNotEmpty()) {
+                appendLine("Examples:")
+                appendLine(examples)
             }
             appendLine("Candidates:")
             appendLine(table)
