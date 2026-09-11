@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import dev.souchastnik.ai.GeminiNanoClient
 import dev.souchastnik.data.Agents
 import dev.souchastnik.data.Articles
+import dev.souchastnik.data.Examples
 import dev.souchastnik.data.Prefs
 import dev.souchastnik.data.Triggers
 
@@ -38,6 +39,7 @@ class SouchastnikIME : InputMethodService(), KeyboardView.Listener {
         Articles.load(this)
         Triggers.load(this)
         Agents.load(this)
+        Examples.load(this)
         gemini = GeminiNanoClient().also { client ->
             client.onState = { state ->
                 if (::strip.isInitialized) strip.render(state)
