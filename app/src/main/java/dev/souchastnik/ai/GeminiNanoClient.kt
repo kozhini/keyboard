@@ -8,7 +8,6 @@ import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
 import dev.souchastnik.data.Article
 import dev.souchastnik.data.Articles
-import dev.souchastnik.data.Examples
 import dev.souchastnik.data.Triggers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -154,6 +153,8 @@ class GeminiNanoClient {
         if (text.trim().length < MIN_CHARS) return@withContext State.Clean
         if (!ready) return@withContext State.NoModel()
 
+        // The trigger dictionary is only a cheap gate and candidate reducer.
+        // No trigger means no model call; a trigger never selects the article.
         val match = Triggers.match(text)
         if (match.codes.isEmpty()) return@withContext State.Clean
 
@@ -163,16 +164,15 @@ class GeminiNanoClient {
         val table = candidates.joinToString("\n") { code ->
             Articles[code]!!.let { "${it.code} — ${it.act} — ${it.title}" }
         }
-        val examples = Examples.judgeBlock(candidates, match.clean)
         val prompt = buildString {
             appendLine("You are a strict text classifier.")
+            appendLine("A trigger only means that this text must be evaluated.")
+            appendLine("A trigger alone is not evidence of a violation.")
+            appendLine("Judge the meaning of the complete text.")
             appendLine("Choose exactly one code from the candidate list, or none.")
             appendLine("Return ONLY the code, with no explanation and no punctuation.")
-            appendLine("A trigger is only a candidate signal; decide from the full text.")
-            if (examples.isNotEmpty()) {
-                appendLine("Examples:")
-                appendLine(examples)
-            }
+            appendLine("Counterexamples:")
+            match.clean.distinct().take(8).forEach(::appendLine)
             appendLine("Candidates:")
             appendLine(table)
             appendLine("Allowed fallback: none")
